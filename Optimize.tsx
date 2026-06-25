@@ -1,73 +1,147 @@
-import React from "react";
+/**
+ * Bridge between the React UI and the native (Rust/Tauri) layer.
+ *
+ * Everything degrades gracefully: when the app runs in a plain browser (e.g. `npm run dev`
+ * without Tauri, or the web preview), native calls fall back to localStorage / clipboard API
+ * so the UI stays fully functional. API keys are only *securely* stored in the native build
+ * (OS keychain); the web fallback warns and uses localStorage.
+ */
 
-export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={"card p-5 " + className}>{children}</div>;
+export interface HistoryRow {
+  id: number;
+  created_at: number;
+  source: string; // "optimize" | "document" | "floating"
+  model_id: string;
+  original_tokens: number;
+  optimized_tokens: number;
+  saved_usd: number;
+  quality_risk: number;
+  preview: string;
 }
 
-export function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: "good" | "brand" | "gold" }) {
-  const color = accent === "good" ? "text-good" : accent === "brand" ? "text-brand" : accent === "gold" ? "text-gold" : "text-ink-100";
-  return (
-    <Card>
-      <div className="text-xs font-semibold text-slate-400">{label}</div>
-      <div className={"text-2xl font-extrabold mt-1 tracking-tight " + color}>{value}</div>
-      {sub && <div className="text-xs text-slate-500 mt-1">{sub}</div>}
-    </Card>
-  );
+export function isTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-export function Badge({ children, tone = "brand" }: { children: React.ReactNode; tone?: "brand" | "good" | "warn" | "bad" | "muted" }) {
-  const map: Record<string, string> = {
-    brand: "bg-brand-soft text-brand",
-    good: "bg-good/10 text-good",
-    warn: "bg-warn/10 text-warn",
-    bad: "bg-bad/10 text-bad",
-    muted: "bg-ink-700 text-slate-300",
-  };
-  return <span className={"badge " + map[tone]}>{children}</span>;
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const core = await import("@tauri-apps/api/core");
+  return core.invoke<T>(cmd, args);
 }
 
-export function RiskMeter({ value, label }: { value: number; label: string }) {
-  const tone = value < 25 ? "bg-good" : value < 55 ? "bg-warn" : "bg-bad";
-  return (
-    <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span className="text-slate-400">Quality risk</span>
-        <span className="font-semibold">{label} · {value}/100</span>
-      </div>
-      <div className="h-2 rounded-full bg-ink-700 overflow-hidden">
-        <div className={"h-full rounded-full " + tone} style={{ width: Math.max(3, value) + "%" }} />
-      </div>
-    </div>
-  );
+/* ----------------------- API key storage (encrypted in native) ----------------------- */
+
+export async function saveApiKey(provider: string, key: string): Promise<void> {
+  if (isTauri()) return invoke("save_api_key", { provider, key });
+  console.warn("[Blueprint] Web fallback: API key stored in localStorage (NOT encrypted).");
+  localStorage.setItem("bp_key_" + provider, key);
 }
 
-export function Spinner({ label }: { label?: string }) {
-  return (
-    <div className="flex items-center gap-2 text-slate-400 text-sm">
-      <span className="inline-block w-4 h-4 border-2 border-slate-600 border-t-brand rounded-full animate-spin" />
-      {label}
-    </div>
-  );
+export async function getApiKeyPresence(provider: string): Promise<boolean> {
+  if (isTauri()) return invoke<boolean>("has_api_key", { provider });
+  return !!localStorage.getItem("bp_key_" + provider);
 }
 
-export function Empty({ title, hint, icon = "✨" }: { title: string; hint: string; icon?: string }) {
-  return (
-    <div className="text-center py-14 px-6">
-      <div className="text-4xl mb-3">{icon}</div>
-      <div className="font-semibold text-ink-100">{title}</div>
-      <div className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">{hint}</div>
-    </div>
-  );
+export async function deleteApiKey(provider: string): Promise<void> {
+  if (isTauri()) return invoke("delete_api_key", { provider });
+  localStorage.removeItem("bp_key_" + provider);
 }
 
-export function Toast({ msg, onDone }: { msg: string; onDone: () => void }) {
-  React.useEffect(() => {
-    const t = setTimeout(onDone, 2200);
-    return () => clearTimeout(t);
-  }, [msg, onDone]);
-  return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-ink-700 border border-line px-4 py-2 rounded-lg text-sm shadow-xl z-50">
-      {msg}
-    </div>
-  );
+/** Used internally by the API layer — never expose a key to logs or the UI. */
+export async function readApiKey(provider: string): Promise<string | null> {
+  if (isTauri()) return invoke<string | null>("read_api_key", { provider });
+  return localStorage.getItem("bp_key_" + provider);
+}
+
+/* ----------------------- History (SQLite in native, localStorage in web) -------------- */
+
+export async function addHistory(row: Omit<HistoryRow, "id">): Promise<void> {
+  if (isTauri()) {
+    await invoke("add_history", { row });
+    return;
+  }
+  const rows = await listHistory();
+  rows.unshift({ ...row, id: Date.now() });
+  localStorage.setItem("bp_history", JSON.stringify(rows.slice(0, 500)));
+}
+
+export async function listHistory(): Promise<HistoryRow[]> {
+  if (isTauri()) return invoke<HistoryRow[]>("list_history");
+  try {
+    return JSON.parse(localStorage.getItem("bp_history") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+export async function clearHistory(): Promise<void> {
+  if (isTauri()) {
+    await invoke("clear_history");
+    return;
+  }
+  localStorage.removeItem("bp_history");
+}
+
+/** Delete ALL local data (privacy control). */
+export async function wipeAllData(): Promise<void> {
+  if (isTauri()) {
+    await invoke("wipe_all_data");
+    return;
+  }
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith("bp_"))
+    .forEach((k) => localStorage.removeItem(k));
+}
+
+/* ----------------------- Clipboard + selection (native superpowers) ------------------- */
+
+export async function copyText(text: string): Promise<void> {
+  if (isTauri()) {
+    const clip = await import("@tauri-apps/plugin-clipboard-manager");
+    await clip.writeText(text);
+    return;
+  }
+  await navigator.clipboard.writeText(text);
+}
+
+/** Grab whatever text the user has highlighted in any other app (native only). */
+export async function captureSelection(): Promise<string> {
+  if (isTauri()) return invoke<string>("capture_selection");
+  return ""; // not possible in a sandboxed browser
+}
+
+/** Type/replace the user's current selection with new text (native only). */
+export async function replaceSelection(text: string): Promise<void> {
+  if (isTauri()) {
+    await invoke("replace_selection", { text });
+    return;
+  }
+  await copyText(text); // best-effort fallback
+}
+
+export async function hideFloating(): Promise<void> {
+  if (isTauri()) await invoke("hide_floating");
+}
+
+/* ----------------------- Desktop preferences (native) ----------------------- */
+
+/** Enable/disable launch-at-startup (native autostart plugin). */
+export async function setLaunchAtStartup(enabled: boolean): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const auto = await import("@tauri-apps/plugin-autostart");
+    if (enabled) await auto.enable();
+    else await auto.disable();
+  } catch (e) {
+    console.warn("[Blueprint] autostart unavailable", e);
+  }
+}
+
+/** Re-register the global shortcut from a settings accelerator like "CmdOrCtrl+Shift+B". */
+export async function updateShortcut(accelerator: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    return await invoke<boolean>("update_shortcut", { accelerator });
+  } catch {
+    return false;
+  }
 }

@@ -1,147 +1,88 @@
 /**
- * Bridge between the React UI and the native (Rust/Tauri) layer.
+ * Optional live-API layer. The optimizer works fully offline; this is only used when the
+ * user has connected a provider and wants real model-powered rewrites or exact token counts.
  *
- * Everything degrades gracefully: when the app runs in a plain browser (e.g. `npm run dev`
- * without Tauri, or the web preview), native calls fall back to localStorage / clipboard API
- * so the UI stays fully functional. API keys are only *securely* stored in the native build
- * (OS keychain); the web fallback warns and uses localStorage.
+ * Robustness: every request has a timeout, one retry on transient failure, and typed errors.
+ * Keys are read on demand from secure storage and never logged.
  */
 
-export interface HistoryRow {
-  id: number;
-  created_at: number;
-  source: string; // "optimize" | "document" | "floating"
-  model_id: string;
-  original_tokens: number;
-  optimized_tokens: number;
-  saved_usd: number;
-  quality_risk: number;
-  preview: string;
+import { readApiKey } from "./bridge";
+
+export interface ProviderDef {
+  id: string;
+  label: string;
+  /** label only — actual endpoints are called from the native side in production */
+  docsHint: string;
+  keyPlaceholder: string;
 }
 
-export function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
+export const PROVIDERS: ProviderDef[] = [
+  { id: "openai", label: "OpenAI", docsHint: "platform.openai.com", keyPlaceholder: "sk-..." },
+  { id: "anthropic", label: "Anthropic (Claude)", docsHint: "console.anthropic.com", keyPlaceholder: "sk-ant-..." },
+  { id: "google", label: "Google (Gemini)", docsHint: "aistudio.google.com", keyPlaceholder: "AIza..." },
+  { id: "xai", label: "xAI (Grok)", docsHint: "x.ai", keyPlaceholder: "xai-..." },
+  { id: "deepseek", label: "DeepSeek", docsHint: "platform.deepseek.com", keyPlaceholder: "sk-..." },
+  { id: "mistral", label: "Mistral", docsHint: "console.mistral.ai", keyPlaceholder: "..." },
+  { id: "meta", label: "Llama (host)", docsHint: "any OpenAI-compatible host", keyPlaceholder: "..." },
+  { id: "local", label: "Local model", docsHint: "http://localhost:11434", keyPlaceholder: "(no key needed)" },
+  { id: "custom", label: "Custom endpoint", docsHint: "your OpenAI-compatible URL", keyPlaceholder: "base url + key" },
+];
 
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const core = await import("@tauri-apps/api/core");
-  return core.invoke<T>(cmd, args);
-}
-
-/* ----------------------- API key storage (encrypted in native) ----------------------- */
-
-export async function saveApiKey(provider: string, key: string): Promise<void> {
-  if (isTauri()) return invoke("save_api_key", { provider, key });
-  console.warn("[Blueprint] Web fallback: API key stored in localStorage (NOT encrypted).");
-  localStorage.setItem("bp_key_" + provider, key);
-}
-
-export async function getApiKeyPresence(provider: string): Promise<boolean> {
-  if (isTauri()) return invoke<boolean>("has_api_key", { provider });
-  return !!localStorage.getItem("bp_key_" + provider);
-}
-
-export async function deleteApiKey(provider: string): Promise<void> {
-  if (isTauri()) return invoke("delete_api_key", { provider });
-  localStorage.removeItem("bp_key_" + provider);
-}
-
-/** Used internally by the API layer — never expose a key to logs or the UI. */
-export async function readApiKey(provider: string): Promise<string | null> {
-  if (isTauri()) return invoke<string | null>("read_api_key", { provider });
-  return localStorage.getItem("bp_key_" + provider);
-}
-
-/* ----------------------- History (SQLite in native, localStorage in web) -------------- */
-
-export async function addHistory(row: Omit<HistoryRow, "id">): Promise<void> {
-  if (isTauri()) {
-    await invoke("add_history", { row });
-    return;
+export class ApiError extends Error {
+  constructor(message: string, readonly kind: "timeout" | "auth" | "network" | "server" | "offline") {
+    super(message);
   }
-  const rows = await listHistory();
-  rows.unshift({ ...row, id: Date.now() });
-  localStorage.setItem("bp_history", JSON.stringify(rows.slice(0, 500)));
 }
 
-export async function listHistory(): Promise<HistoryRow[]> {
-  if (isTauri()) return invoke<HistoryRow[]>("list_history");
+const TIMEOUT_MS = 20000;
+
+async function withTimeout<T>(p: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    return JSON.parse(localStorage.getItem("bp_history") || "[]");
+    return await p(ctrl.signal);
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/**
+ * Send a chat completion for an OpenAI-compatible endpoint. Used for the optional
+ * "model-powered rewrite". Returns the assistant text. Anthropic/Gemini have their own
+ * shapes; in the packaged app these route through the Rust side. This browser-side path
+ * supports OpenAI-compatible providers (OpenAI, DeepSeek, Mistral, local, custom).
+ */
+export async function chatComplete(provider: string, baseUrl: string, model: string, prompt: string): Promise<string> {
+  if (!navigator.onLine) throw new ApiError("You are offline.", "offline");
+  const key = await readApiKey(provider);
+  if (!key && provider !== "local") throw new ApiError("No API key connected for " + provider, "auth");
+
+  const url = baseUrl.replace(/\/$/, "") + "/v1/chat/completions";
+  const body = JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.2 });
+
+  const attempt = (signal: AbortSignal) =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(key ? { Authorization: "Bearer " + key } : {}) },
+      body,
+      signal,
+    });
+
+  let res: Response;
+  try {
+    res = await withTimeout(attempt);
   } catch {
-    return [];
+    // one retry on transient network/timeout failure
+    try {
+      res = await withTimeout(attempt);
+    } catch (e) {
+      throw new ApiError("Request failed or timed out.", "timeout");
+    }
   }
-}
+  if (res.status === 401 || res.status === 403) throw new ApiError("Invalid or expired API key.", "auth");
+  if (res.status >= 500) throw new ApiError("Provider server error (" + res.status + ").", "server");
+  if (!res.ok) throw new ApiError("Request failed (" + res.status + ").", "network");
 
-export async function clearHistory(): Promise<void> {
-  if (isTauri()) {
-    await invoke("clear_history");
-    return;
-  }
-  localStorage.removeItem("bp_history");
-}
-
-/** Delete ALL local data (privacy control). */
-export async function wipeAllData(): Promise<void> {
-  if (isTauri()) {
-    await invoke("wipe_all_data");
-    return;
-  }
-  Object.keys(localStorage)
-    .filter((k) => k.startsWith("bp_"))
-    .forEach((k) => localStorage.removeItem(k));
-}
-
-/* ----------------------- Clipboard + selection (native superpowers) ------------------- */
-
-export async function copyText(text: string): Promise<void> {
-  if (isTauri()) {
-    const clip = await import("@tauri-apps/plugin-clipboard-manager");
-    await clip.writeText(text);
-    return;
-  }
-  await navigator.clipboard.writeText(text);
-}
-
-/** Grab whatever text the user has highlighted in any other app (native only). */
-export async function captureSelection(): Promise<string> {
-  if (isTauri()) return invoke<string>("capture_selection");
-  return ""; // not possible in a sandboxed browser
-}
-
-/** Type/replace the user's current selection with new text (native only). */
-export async function replaceSelection(text: string): Promise<void> {
-  if (isTauri()) {
-    await invoke("replace_selection", { text });
-    return;
-  }
-  await copyText(text); // best-effort fallback
-}
-
-export async function hideFloating(): Promise<void> {
-  if (isTauri()) await invoke("hide_floating");
-}
-
-/* ----------------------- Desktop preferences (native) ----------------------- */
-
-/** Enable/disable launch-at-startup (native autostart plugin). */
-export async function setLaunchAtStartup(enabled: boolean): Promise<void> {
-  if (!isTauri()) return;
-  try {
-    const auto = await import("@tauri-apps/plugin-autostart");
-    if (enabled) await auto.enable();
-    else await auto.disable();
-  } catch (e) {
-    console.warn("[Blueprint] autostart unavailable", e);
-  }
-}
-
-/** Re-register the global shortcut from a settings accelerator like "CmdOrCtrl+Shift+B". */
-export async function updateShortcut(accelerator: string): Promise<boolean> {
-  if (!isTauri()) return false;
-  try {
-    return await invoke<boolean>("update_shortcut", { accelerator });
-  } catch {
-    return false;
-  }
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "";
 }

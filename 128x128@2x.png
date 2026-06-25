@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Blueprint Token Optimizer",
+  "version": "1.0.0",
+  "identifier": "com.blueprint.tokenoptimizer",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Blueprint Token Optimizer",
+        "width": 1080,
+        "height": 720,
+        "minWidth": 880,
+        "minHeight": 600,
+        "resizable": true,
+        "center": true,
+        "theme": "Dark",
+        "visible": false
+      },
+      {
+        "label": "floating",
+        "title": "Blueprint",
+        "url": "index.html#/floating",
+        "width": 420,
+        "height": 520,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "shadow": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.x.ai https://api.deepseek.com https://api.mistral.ai http://localhost:* ; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "appimage",
+      "rpm",
+      "nsis",
+      "msi",
+      "app",
+      "dmg"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "Reduce AI token usage before prompts reach any model.",
+    "longDescription": "Blueprint Token Optimizer compresses prompts, documents, and workflows so you spend fewer tokens on Claude, OpenAI, Gemini, Grok, Llama, DeepSeek, Mistral, and local models \u2014 with a global hotkey that works in any desktop app."
+  },
+  "plugins": {}
+}

@@ -1,42 +1,37 @@
-{
-  "name": "blueprint-token-optimizer",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "description": "Blueprint Token Optimizer \u2014 a local-first desktop app that reduces AI token usage before prompts reach any model.",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
-  },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
-    "zustand": "^4.5.5",
-    "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/plugin-sql": "^2.0.0",
-    "@tauri-apps/plugin-global-shortcut": "^2.0.0",
-    "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
-    "@tauri-apps/plugin-dialog": "^2.0.0",
-    "@tauri-apps/plugin-fs": "^2.0.0",
-    "@tauri-apps/plugin-autostart": "^2.0.0"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.45",
-    "tailwindcss": "^3.4.10",
-    "typescript": "^5.5.4",
-    "vite": "^5.4.3",
-    "vitest": "^2.0.5"
-  }
-}
+# Installing Blueprint Token Optimizer
+
+Two ways to install: **(A)** download a prebuilt installer, or **(B)** build from source.
+
+## A. Prebuilt installers (end users)
+
+After building (see BUILD.md) or downloading a release, install the file for your OS:
+
+| OS | File | How |
+|----|------|-----|
+| **Windows** | `Blueprint Token Optimizer_1.0.0_x64-setup.exe` (NSIS) or `..._x64_en-US.msi` | Double-click → follow the wizard. |
+| **macOS** | `Blueprint Token Optimizer_1.0.0_aarch64.dmg` (or `_x64`) | Open the `.dmg`, drag the app to **Applications**. |
+| **Linux** | `blueprint-token-optimizer_1.0.0_amd64.AppImage` | `chmod +x *.AppImage && ./*.AppImage`. Or install the `.deb` / `.rpm`. |
+
+### First-run permissions
+- **macOS:** the global hotkey and "Replace selection" need **Accessibility** access.
+  Go to *System Settings → Privacy & Security → Accessibility* and enable Blueprint.
+  Unsigned builds: right-click the app → **Open** the first time (or
+  `xattr -dr com.apple.quarantine "/Applications/Blueprint Token Optimizer.app"`).
+- **Windows:** SmartScreen may warn on unsigned builds → *More info → Run anyway*.
+- **Linux:** the keychain uses the Secret Service (GNOME Keyring / KWallet). On headless
+  systems install `gnome-keyring`. AppImage may need `libfuse2`.
+
+## B. Build from source (developers)
+
+Prerequisites: **Node 18+**, **Rust (stable)**, and the Tauri system deps for your OS
+(see BUILD.md). Then:
+
+```bash
+git clone <your-repo> blueprint-token-optimizer
+cd blueprint-token-optimizer
+npm install
+npm run tauri:dev        # dev run
+npm run tauri:build      # produce installers
+```
+
+Installers are written to `src-tauri/target/release/bundle/`.

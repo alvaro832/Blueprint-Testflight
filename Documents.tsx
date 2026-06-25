@@ -1,107 +1,132 @@
-import { useEffect } from "react";
-import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
-import { useStore } from "./lib/store";
-import { useEffect as _useEffectTheme } from "react";
-import { isTauri } from "./lib/bridge";
-import Dashboard from "./screens/Dashboard";
-import Optimize from "./screens/Optimize";
-import Documents from "./screens/Documents";
-import History from "./screens/History";
-import Settings from "./screens/Settings";
-import ModelRouter from "./screens/ModelRouter";
-import ExportScreen from "./screens/Export";
+import { describe, it, expect } from "vitest";
+import { estimateTokens, detectKind } from "./tokens";
+import { routeTask, callCost, getModel } from "./pricing";
+import { optimize, detectVagueness, costBreakdown, rewriteClearer, reduceTokens, detectContext, optimizeAuto, readabilityScore } from "./optimizer";
 
-const NAV = [
-  { to: "/", label: "Dashboard", icon: "▤", end: true },
-  { to: "/optimize", label: "Optimize", icon: "✦" },
-  { to: "/documents", label: "Documents", icon: "▢" },
-  { to: "/history", label: "History", icon: "◷" },
-  { to: "/settings", label: "Settings", icon: "⚙" },
-];
-const SECONDARY = [
-  { to: "/router", label: "Model Router", icon: "⇄" },
-  { to: "/export", label: "Export", icon: "↧" },
-];
+const VERBOSE =
+  "I would like you to please carefully read through the following customer support email that we have received from one of our valued customers, and then I want you to write a response. Please make sure that the response is polite and professional in tone. It is very important that you address all of their concerns. Please do not forget to thank them. Thank you so much for your help!";
 
-export default function App() {
-  const refreshHistory = useStore((s) => s.refreshHistory);
-  const navigate = useNavigate();
-  const theme = useStore((s) => s.settings.theme);
-  const accent = useStore((s) => s.settings.accent);
-  _useEffectTheme(() => {
-    const root = document.documentElement;
-    const sysDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
-    const dark = theme === "dark" || (theme === "system" && sysDark);
-    root.classList.toggle("theme-light", !dark);
-    const accents: Record<string, string> = { bronze: "#B08D57", graphite: "#9b9aa3", ink: "#6f7d96", sage: "#A6B5A0" };
-    root.style.setProperty("--accent", accents[accent] ?? accents.bronze);
-  }, [theme, accent]);
+describe("tokens", () => {
+  it("returns 0 for empty input", () => {
+    expect(estimateTokens("")).toBe(0);
+    expect(estimateTokens("   ")).toBe(0);
+  });
+  it("scales with length", () => {
+    expect(estimateTokens("hello world")).toBeLessThan(estimateTokens("hello world ".repeat(20)));
+  });
+  it("detects content kinds", () => {
+    expect(detectKind('{"a":1,"b":[1,2,3]}')).toBe("json");
+    expect(detectKind("the quick brown fox jumps over")).toBe("prose");
+  });
+});
 
-  useEffect(() => {
-    refreshHistory();
-    // Listen for the tray hotkey / menu "open optimize" event in the native build.
-    if (isTauri()) {
-      import("@tauri-apps/api/event").then(({ listen }) => {
-        listen("open-optimize", () => navigate("/optimize"));
-      });
-    }
-  }, [refreshHistory, navigate]);
+describe("pricing & routing", () => {
+  it("prices a call correctly", () => {
+    expect(callCost(getModel("gpt-4o")!, 1_000_000, 1_000_000)).toBeCloseTo(12.5, 5);
+  });
+  it("routes easy classification to a cheap hosted model", () => {
+    const r = routeTask("classify a support ticket into one of four labels, return only the label", 600, 15);
+    expect(r.requiredTier).toBeLessThanOrEqual(2);
+    expect(r.recommended).toBeDefined();
+    expect(r.recommended!.vendor).not.toBe("Local");
+  });
+  it("routes hard contract analysis to a high tier", () => {
+    const r = routeTask("analyze a legal contract for liability and negotiate strategy with detailed reasoning", 45000, 2500);
+    expect(r.requiredTier).toBeGreaterThanOrEqual(3);
+  });
+  it("ranks models cheapest-first", () => {
+    const r = routeTask("summarize", 1000, 200);
+    for (let i = 1; i < r.ranked.length; i++) expect(r.ranked[i].cost).toBeGreaterThanOrEqual(r.ranked[i - 1].cost);
+  });
+});
 
-  return (
-    <div className="grid grid-cols-[230px_1fr] h-screen">
-      <aside className="bg-ink-900 border-r border-line flex flex-col p-3">
-        <div className="flex items-center gap-2.5 px-2 py-3 mb-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand to-gold grid place-items-center text-white font-black text-sm">B</div>
-          <div className="font-serif font-medium tracking-tight text-lg">Blueprint</div>
-        </div>
+describe("optimizer", () => {
+  const res = optimize(VERBOSE, { modelId: "gpt-4o", monthlyRuns: 50000 });
 
-        <nav className="space-y-1">
-          {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.end} className={navClass}>
-              <span className="w-5 text-center opacity-80">{n.icon}</span> {n.label}
-            </NavLink>
-          ))}
-        </nav>
+  it("reduces tokens by >20%", () => {
+    expect(res.optimizedTokens).toBeLessThan(res.originalTokens);
+    expect(res.compressionPct).toBeGreaterThan(20);
+  });
+  it("reports removed waste incl. politeness", () => {
+    expect(res.waste.length).toBeGreaterThan(0);
+    expect(res.waste.some((w) => w.type === "politeness")).toBe(true);
+  });
+  it("computes consistent savings", () => {
+    expect(res.savedPerCall).toBeGreaterThan(0);
+    expect(res.savedPerMonth).toBeCloseTo(res.savedPerCall * 50000, 6);
+    expect(res.savedPerYear).toBeCloseTo(res.savedPerMonth * 12, 6);
+  });
+  it("keeps quality risk in 0-100", () => {
+    expect(res.qualityRisk).toBeGreaterThanOrEqual(0);
+    expect(res.qualityRisk).toBeLessThanOrEqual(100);
+  });
+  it("never throws on empty / odd input", () => {
+    expect(() => optimize("")).not.toThrow();
+    expect(optimize("").compressionPct).toBe(0);
+    expect(() => optimize("```code only```")).not.toThrow();
+  });
+  it("preserves fenced code blocks verbatim", () => {
+    const r = optimize("Please just fix this:\n```js\nconst x = 1; // please keep\n```");
+    expect(r.optimized).toContain("const x = 1; // please keep");
+  });
+  it("flags vague prompts", () => {
+    expect(detectVagueness("make it good and nice").some((f) => /vague/i.test(f.label))).toBe(true);
+  });
+});
 
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 px-3 mt-5 mb-1">Tools</div>
-        <nav className="space-y-1">
-          {SECONDARY.map((n) => (
-            <NavLink key={n.to} to={n.to} className={navClass}>
-              <span className="w-5 text-center opacity-80">{n.icon}</span> {n.label}
-            </NavLink>
-          ))}
-        </nav>
+describe("cost & clarity", () => {
+  it("costBreakdown ranks models cheapest-first and prices input", () => {
+    const { tokens, rows } = costBreakdown("hello ".repeat(500), 200);
+    expect(tokens).toBeGreaterThan(0);
+    for (let i = 1; i < rows.length; i++) expect(rows[i].totalCost).toBeGreaterThanOrEqual(rows[i - 1].totalCost);
+    const gpt4o = rows.find((r) => r.model.id === "gpt-4o")!;
+    expect(gpt4o.inputCost).toBeCloseTo((tokens / 1e6) * 2.5, 6);
+  });
+  it("rewriteClearer fixes lone 'i' and ensures terminal punctuation", () => {
+    const r = rewriteClearer("please make this clear i want it readable");
+    expect(/\bI\b/.test(r.optimized)).toBe(true);
+    expect(/[.!?]$/.test(r.optimized.trim())).toBe(true);
+  });
+  it("clarity mode never throws on empty", () => {
+    expect(() => rewriteClearer("")).not.toThrow();
+  });
+});
 
-        <div className="mt-auto">
-          <button className="btn btn-primary w-full" onClick={() => navigate("/optimize")}>
-            ✦ Optimize Prompt
-          </button>
-          <div className="text-[11px] text-slate-600 mt-3 px-1 leading-relaxed">
-            {isTauri() ? "Hotkey: Ctrl/Cmd + Shift + B" : "Web preview · native features off"}
-          </div>
-        </div>
-      </aside>
+describe("reduce tokens", () => {
+  const HEDGE = "Could you maybe, when you get a chance, kind of help me rewrite this? I think it would be nice if you could perhaps make it a bit shorter, for example by trimming it. Thank you so much for your help!";
+  it("reduces at least as much as aggressive on hedge-heavy text", () => {
+    const agg = optimize(HEDGE, { level: "aggressive" });
+    const red = reduceTokens(HEDGE);
+    expect(red.compressionPct).toBeGreaterThanOrEqual(agg.compressionPct);
+  });
+  it("still preserves fenced code", () => {
+    const r = optimize("Could you just fix:\n```js\nconst x = 1; // keep\n```", { level: "reduce" });
+    expect(r.optimized).toContain("const x = 1; // keep");
+  });
+});
 
-      <main className="overflow-auto">
-        <div className="max-w-5xl mx-auto px-7 py-7">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/optimize" element={<Optimize />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/router" element={<ModelRouter />} />
-            <Route path="/export" element={<ExportScreen />} />
-          </Routes>
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function navClass({ isActive }: { isActive: boolean }) {
-  return (
-    "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors " +
-    (isActive ? "bg-brand-soft text-brand" : "text-slate-400 hover:text-ink-100 hover:bg-ink-800")
-  );
-}
+describe("smart context + metrics", () => {
+  it("adds readability and qualityConfidence to results", () => {
+    const r = optimize("Please could you summarize this. Thank you so much!");
+    expect(r.readability).toBeGreaterThanOrEqual(0);
+    expect(r.readability).toBeLessThanOrEqual(100);
+    expect(r.qualityConfidence).toBe(100 - r.qualityRisk);
+  });
+  it("readabilityScore: short sentences score higher than long ones", () => {
+    const short = readabilityScore("Go now. Stop. Run fast.");
+    const long = readabilityScore("Notwithstanding the aforementioned considerations, the comprehensive evaluation necessitated extraordinarily protracted deliberation.");
+    expect(short).toBeGreaterThan(long);
+  });
+  it("detects JSON, code, email, notes, prompt", () => {
+    expect(detectContext('{"a":1,"b":[1,2]}').context).toBe("json");
+    expect(detectContext("function add(a,b){ return a+b; } const x = add(1,2);").context).toBe("code");
+    expect(detectContext("Hi team,\nPlease review.\nRegards,\nSam").context).toBe("email");
+    expect(detectContext("Agenda\n- item one\n- item two\nAction items: ship it").context).toBe("notes");
+    expect(detectContext("You are a helpful assistant. Return only JSON.").context).toBe("prompt");
+  });
+  it("optimizeAuto returns a detected context and a result", () => {
+    const r = optimizeAuto("Hi team,\nCould you please review this. Thanks!");
+    expect(r.detected).toBeDefined();
+    expect(typeof r.optimized).toBe("string");
+  });
+});
