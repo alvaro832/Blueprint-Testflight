@@ -1,0 +1,96 @@
+/** Blueprint Engine — CommonJS. */
+// Faithful plain-JS port of the verified Blueprint engine (tokens + pricing + optimizer).
+function detectKind(text){const t=text.trim();if(!t)return"prose";if(/^[\[{]/.test(t)&&/[\]}]\s*$/.test(t))return"json";const c=(t.match(/[;{}()=><]|=>|function|const |import |def |class /g)||[]).length;if(c/Math.max(1,t.length/80)>1.4)return"code";if(c>6)return"mixed";return"prose";}
+function estimateTokens(text,kind){if(!text)return 0;const tr=text.replace(/\s+/g," ").trim();if(!tr)return 0;const chars=tr.length,words=tr.split(/\s+/).filter(Boolean).length;const k=kind||detectKind(text);let e=(chars/4)*0.6+words*1.33*0.4;if(k==="code")e*=1.18;else if(k==="json")e*=1.22;else if(k==="mixed")e*=1.08;return Math.max(1,Math.round(e));}
+const TIER_LABEL={1:"Light",2:"Standard",3:"Advanced",4:"Frontier"};
+const MODELS=[
+{id:"gpt-4o",name:"GPT-4o",vendor:"OpenAI",inputPerM:2.5,outputPerM:10,tier:3,context:"128K"},
+{id:"gpt-4o-mini",name:"GPT-4o mini",vendor:"OpenAI",inputPerM:0.15,outputPerM:0.6,tier:1,context:"128K"},
+{id:"o3-mini",name:"o3-mini",vendor:"OpenAI",inputPerM:1.1,outputPerM:4.4,tier:3,context:"200K"},
+{id:"claude-opus",name:"Claude Opus",vendor:"Anthropic",inputPerM:15,outputPerM:75,tier:4,context:"200K"},
+{id:"claude-sonnet",name:"Claude Sonnet",vendor:"Anthropic",inputPerM:3,outputPerM:15,tier:3,context:"200K"},
+{id:"claude-haiku",name:"Claude Haiku",vendor:"Anthropic",inputPerM:0.8,outputPerM:4,tier:2,context:"200K"},
+{id:"gemini-pro",name:"Gemini 1.5 Pro",vendor:"Google",inputPerM:1.25,outputPerM:5,tier:3,context:"1M"},
+{id:"gemini-flash",name:"Gemini 1.5 Flash",vendor:"Google",inputPerM:0.075,outputPerM:0.3,tier:1,context:"1M"},
+{id:"grok-2",name:"Grok 2",vendor:"xAI",inputPerM:2,outputPerM:10,tier:3,context:"131K"},
+{id:"llama-70b",name:"Llama 3.1 70B",vendor:"Meta",inputPerM:0.2,outputPerM:0.2,tier:2,context:"128K"},
+{id:"deepseek-chat",name:"DeepSeek V3",vendor:"DeepSeek",inputPerM:0.27,outputPerM:1.1,tier:3,context:"64K"},
+{id:"mistral-large",name:"Mistral Large",vendor:"Mistral",inputPerM:2,outputPerM:6,tier:3,context:"128K"},
+{id:"local",name:"Local model",vendor:"Local",inputPerM:0,outputPerM:0,tier:2,context:"varies"}];
+const getModel=id=>MODELS.find(m=>m.id===id);
+const callCost=(m,i,o)=>(i/1e6)*m.inputPerM+(o/1e6)*m.outputPerM;
+function routeTask(desc,inTok,outTok){const t=desc.toLowerCase();let score=10;const reasons=[];
+const hard=/(reason|analyz|evaluate|critique|legal|contract|security|architect|debug|prove|strateg|nuance|negotiat|multi-step|multistep|complex|research|plan\b)/g;
+const easy=/(classif|label|extract|tag|format|translate|list|categor|lookup|rephrase|spellcheck|summari)/g;
+const hm=(t.match(hard)||[]).length,em=(t.match(easy)||[]).length;
+if(hm){score+=hm*18;reasons.push({delta:"+"+hm*18,label:"Reasoning-heavy verbs ("+hm+")",tone:"warn"});}
+if(em){score-=em*12;reasons.push({delta:"-"+em*12,label:"Simple/structured task ("+em+")",tone:"good"});}
+if(outTok>1000){score+=20;reasons.push({delta:"+20",label:"Long generation (>1k output)",tone:"warn"});}
+else if(outTok>0&&outTok<80){score-=10;reasons.push({delta:"-10",label:"Tiny output",tone:"good"});}
+if(inTok>20000){score+=18;reasons.push({delta:"+18",label:"Very large context",tone:"warn"});}
+else if(inTok>0&&inTok<800){score-=6;reasons.push({delta:"-6",label:"Small context",tone:"good"});}
+score=Math.max(2,Math.min(99,Math.round(score)));
+const requiredTier=score<25?1:score<50?2:score<75?3:4;
+const ranked=MODELS.map(m=>({model:m,cost:callCost(m,inTok,outTok),capable:m.tier>=requiredTier})).sort((a,b)=>a.cost-b.cost);
+const hosted=ranked.find(r=>r.capable&&r.model.vendor!=="Local"),any=ranked.find(r=>r.capable);
+return{score,requiredTier,reasons,ranked,recommended:(hosted||any||{}).model};}
+const FILLERS=[
+[/\bi would really appreciate it if you could\b/gi,"politeness"],[/\bthank you( so much| very much| in advance| a lot)?( for (your help|this|everything|that)( with this( task)?)?)?!*/gi,"politeness"],[/\bthanks( (a lot|so much|again|in advance))?!*/gi,"politeness"],
+[/\bplease could you\b/gi,"verbosity"],[/\bi would like you to\b/gi,"verbosity"],
+[/\bi want you to\b/gi,"verbosity"],[/\bi need you to\b/gi,"verbosity"],[/\bplease make sure (that |to )?/gi,"filler"],
+[/\bplease do not forget to\b/gi,"filler"],[/\bit is (very |really )?important that you\b/gi,"filler"],[/\bmake sure (that |to )?you\b/gi,"filler"],
+[/\b(very )?carefully (read|review|analyze|consider)( through)?\b/gi,"filler"],[/\bread through (the )?(following )?\b/gi,"verbosity"],
+[/\bthat we (have )?received\b/gi,"verbosity"],[/\bfrom one of our valued customers\b/gi,"verbosity"],[/\bone of our valued customers\b/gi,"verbosity"],
+[/\bas you can see\b/gi,"filler"],[/\bin order to\b/gi,"verbosity"],[/\bdue to the fact that\b/gi,"verbosity"],[/\bat this point in time\b/gi,"verbosity"],
+[/\bthe following\b/gi,"verbosity"],[/\bas follows\b/gi,"verbosity"],[/\b(kindly|please)\b/gi,"politeness"],
+[/\b(just|simply|really|very|actually|basically|essentially)\b/gi,"filler"]];
+const VAGUE=["good","nice","better","some","stuff","things","a lot","etc","and so on","appropriate","as needed","high quality"];
+const SO=String.fromCharCode(0xe000),SC=String.fromCharCode(0xe001);
+function mask(text){const store=[];const wrap=m=>{store.push(m);return SO+(store.length-1)+SC;};
+let s=text.replace(/```[\s\S]*?```/g,wrap);s=s.replace(/"[^"]{40,}"/g,wrap);
+const restore=x=>x.replace(new RegExp(SO+"(\\d+)"+SC,"g"),(_,i)=>store[Number(i)]||"");return{masked:s,restore};}
+function dedupe(text){const parts=text.split(/(?<=[.!?])\s+/);const seen=new Set();const kept=[];let removed=0;
+for(const p of parts){const n=p.toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+if(n.length>12&&seen.has(n)){removed+=estimateTokens(p);continue;}if(n.length>12)seen.add(n);kept.push(p);}return{out:kept.join(" "),removed};}
+function detectVagueness(text){const f=[];const lo=text.toLowerCase();
+const found=VAGUE.filter(v=>new RegExp("\\b"+v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b").test(lo));
+if(found.length)f.push({label:"Vague wording: "+found.slice(0,4).join(", "),suggestion:"Replace with concrete, measurable terms (e.g. 'concise' -> 'under 100 words')."});
+if(!/(format|json|markdown|bullet|table|step|word|sentence|paragraph|tone)/i.test(text))f.push({label:"No output format specified",suggestion:"State the desired format/length so the model doesn't over-generate."});
+if(text.trim().split(/\s+/).length<4)f.push({label:"Very short prompt",suggestion:"Add the goal and any constraints; underspecified prompts often need expensive re-tries."});
+return f;}
+function optimize(input,opts){opts=opts||{};const modelId=opts.modelId||"gpt-4o";const level=opts.level||"balanced";
+const model=getModel(modelId)||getModel("gpt-4o");const kind=detectKind(input);const originalTokens=estimateTokens(input,kind);
+const waste=[];const{masked,restore}=mask(input);let w=masked;const gT={},gL={};
+for(const[re,type]of FILLERS){w=w.replace(re,m=>{gT[type]=(gT[type]||0)+estimateTokens(m);(gL[type]=gL[type]||new Set());return" ";});}
+for(const type of Object.keys(gT)){if(gT[type]>0)waste.push({type,label:type==="politeness"?"Removed politeness padding":type==="verbosity"?"Tightened wordy phrasing":"Dropped emphatic filler",detail:type==="politeness"?"please/thank-you padding":type==="verbosity"?"wordy phrasing & lead-ins":"emphatic & weak intensifiers",tokensSaved:gT[type]});}
+if(level==="aggressive"||level==="reduce"){const b=w;w=w.replace(/\b(for example|for instance|e\.g\.)[^.?!]*[.?!]/gi,"");const sv=estimateTokens(b)-estimateTokens(w);if(sv>0)waste.push({type:"examples",label:"Removed inline examples",detail:"cut for-example asides",tokensSaved:sv});}if(level==="reduce"){const b2=w;w=w.replace(/\b(could you|would you|when you (get|have) (a chance|time)|if possible|i think|i believe|kind of|sort of|a bit|a little|somewhat|perhaps|maybe)\b/gi," ");const s2=estimateTokens(b2)-estimateTokens(w);if(s2>0)waste.push({type:"verbosity",label:"Reduced hedging & modals",detail:"removed soft/uncertain phrasing",tokensSaved:s2});}
+const dd=dedupe(w);w=dd.out;if(dd.removed>0)waste.push({type:"redundancy",label:"Removed repeated text",detail:"collapsed restated instructions",tokensSaved:dd.removed});
+const bws=w;w=w.replace(/[ \t]{2,}/g," ").replace(/\s+([,.!?:;])/g,"$1").replace(/([,.!?:;]){2,}/g,"$1").replace(/\n{3,}/g,"\n\n").replace(/ +\n/g,"\n").replace(/(^|[.!?]\s+)[,;:]\s*/g,"$1").replace(/^[\s,;:]+/,"").replace(/[\s,;:]+$/,"").trim();
+const wsv=estimateTokens(bws)-estimateTokens(w);if(wsv>0)waste.push({type:"whitespace",label:"Normalized spacing",detail:"extra spaces & blank lines",tokensSaved:wsv});
+w=w.replace(/(^|[.!?]\s+)([a-z])/g,(_,p,c)=>p+c.toUpperCase());if(level==="clarity"){w=w.replace(/\bi\b/g,"I");if(w&&!/[.!?]$/.test(w.trim()))w=w.trim()+".";}const optimized=restore(w);
+const optimizedTokens=estimateTokens(optimized,kind);const tokensSaved=Math.max(0,originalTokens-optimizedTokens);
+const compressionPct=originalTokens?Math.round((tokensSaved/originalTokens)*100):0;const clarityFlags=detectVagueness(input);
+let risk=compressionPct*0.6;if(waste.some(x=>x.type==="examples"))risk+=18;if(compressionPct>55)risk+=12;
+const safe=waste.filter(x=>x.type==="politeness"||x.type==="whitespace").reduce((s,x)=>s+x.tokensSaved,0)/Math.max(1,tokensSaved);
+risk-=safe*18;const qualityRisk=Math.max(0,Math.min(100,Math.round(risk)));
+const qualityRiskLabel=qualityRisk<25?"Low":qualityRisk<55?"Moderate":"Elevated";
+const expOut=opts.expectedOutputTokens||Math.min(1500,Math.round(optimizedTokens*0.4)||200);
+const savedPerCall=(tokensSaved/1e6)*model.inputPerM;const monthlyRuns=opts.monthlyRuns||0;
+const savedPerMonth=savedPerCall*monthlyRuns,savedPerYear=savedPerMonth*12;
+const routing=routeTask(input.slice(0,600),optimizedTokens,expOut);
+const readability=readabilityScore(optimized);const qualityConfidence=100-qualityRisk;return{original:input,optimized,kind,originalTokens,optimizedTokens,tokensSaved,compressionPct,qualityRisk,qualityRiskLabel,waste:waste.sort((a,b)=>b.tokensSaved-a.tokensSaved),clarityFlags,savedPerCall,savedPerMonth,savedPerYear,routing,readability,qualityConfidence};}
+function costBreakdown(text,expectedOutputTokens){expectedOutputTokens=expectedOutputTokens||0;const tokens=estimateTokens(text);const rows=MODELS.map(m=>({model:m,inputTokens:tokens,inputCost:callCost(m,tokens,0),totalCost:callCost(m,tokens,expectedOutputTokens)})).sort((a,b)=>a.totalCost-b.totalCost);return{tokens,rows};}
+
+function readabilityScore(text){const t=text.replace(/\s+/g," ").trim();if(!t)return 0;const sentences=Math.max(1,(t.match(/[.!?]+/g)||[]).length);const words=t.split(/\s+/).filter(Boolean);if(!words.length)return 0;const wps=words.length/sentences;const cpw=words.reduce((a,w)=>a+w.length,0)/words.length;const score=100-(wps-12)*2.2-(cpw-4.7)*9;return Math.max(0,Math.min(100,Math.round(score)));}
+function detectContext(text){const t=text.trim();const k=detectKind(t);
+ if(k==="json")return{context:"json",suggestedLevel:"balanced",label:"JSON \u2192 preserve structure"};
+ if(k==="code")return{context:"code",suggestedLevel:"balanced",label:"Code \u2192 preserve syntax"};
+ if(/\b(action items?|attendees?|agenda|minutes|next steps|decisions?|follow[- ]?ups?)\b/i.test(t))return{context:"notes",suggestedLevel:"aggressive",label:"Notes \u2192 summarize"};
+ if(/\n/.test(t)&&/(\bdear\b|\bhi\b|\bhello\b|\bhey\b|\bregards\b|\bsincerely\b|\bbest,|sent from my|subject:)/i.test(t))return{context:"email",suggestedLevel:"clarity",label:"Email \u2192 rewrite professionally"};
+ if(/^#{1,6}\s|\n[-*+]\s|\n\d+\.\s|```|\[[^\]]+\]\([^)]+\)/.test(t))return{context:"markdown",suggestedLevel:"balanced",label:"Markdown \u2192 preserve formatting"};
+ if(/\b(you are|act as|respond with|return only|summarize|rewrite|generate|classify|output (a|the|only)|step by step|system prompt)\b/i.test(t))return{context:"prompt",suggestedLevel:"balanced",label:"Prompt \u2192 reduce tokens"};
+ return{context:"document",suggestedLevel:"aggressive",label:"Document \u2192 compress intelligently"};}
+function rewriteClearer(text,modelId){return optimize(text,{modelId:modelId||"gpt-4o",level:"clarity"});}
+function reduceTokens(text,modelId){return optimize(text,{modelId:modelId||"gpt-4o",level:"reduce"});}
+function optimizeAuto(text,modelId,monthlyRuns){const detected=detectContext(text);const result=optimize(text,{modelId:modelId||"gpt-4o",monthlyRuns:monthlyRuns||0,level:detected.suggestedLevel});return Object.assign({},result,{detected});}
+module.exports = { optimize, reduceTokens, rewriteClearer, optimizeAuto, detectContext, readabilityScore, costBreakdown, routeTask, estimateTokens, detectKind, detectVagueness, callCost, getModel, MODELS, TIER_LABEL };

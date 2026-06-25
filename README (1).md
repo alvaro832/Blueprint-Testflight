@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blueprint — Warm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFFFFF; --warm:#FBF6F0; --warm2:#F6EEE4; --line:#EEE4D7; --line2:#F2EADF;
+  --ink:#2A211C; --mut:#8C7C6E; --faint:#B6A595;
+  --accent:#C4623E; --accent-2:#D89A3C; --accent-soft:#FBEDE6; --accent-line:#EBCFC1;
+  --pos:#6E8B66; --neg:#C4623E;
+  --serif:'Fraunces',Georgia,'Times New Roman',serif;
+  --sans:'Inter Tight',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;letter-spacing:.005em}
+.app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+.side{border-right:1px solid var(--line);padding:30px 20px;display:flex;flex-direction:column;background:var(--warm)}
+.brand{font-family:var(--serif);font-size:22px;font-weight:500;letter-spacing:.01em;margin-bottom:2px}
+.brand .dot{color:var(--accent)}
+.tag{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:34px}
+.nav{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--mut);font-weight:500;font-size:13px;cursor:pointer;border:none;background:none;width:100%;text-align:left;letter-spacing:.01em;transition:.15s}
+.nav:hover{color:var(--ink);background:var(--warm2)}.nav.active{color:var(--ink);background:#fff;box-shadow:0 1px 2px rgba(60,40,20,.05)}
+.nav .k{width:14px;color:var(--faint);font-size:11px}.nav.active .k{color:var(--accent)}
+.foot{margin-top:auto;font-size:11px;color:var(--faint);line-height:1.6;border-top:1px solid var(--line);padding-top:18px}
+.main{overflow:auto}.wrap{max-width:860px;margin:0 auto;padding:54px 48px}
+h1{font-family:var(--serif);font-size:30px;font-weight:500;letter-spacing:-.01em;margin:0;color:#241c17}
+.sub{color:var(--mut);font-size:14px;margin:8px 0 34px;max-width:560px;line-height:1.5}
+.panel{border:1px solid var(--line);border-radius:12px;padding:24px;margin-bottom:18px;background:#fff;box-shadow:0 1px 2px rgba(80,50,20,.03)}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+label{display:block;font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+select,input,textarea{background:var(--warm);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:11px 12px;font-size:13px;width:100%;font-family:var(--sans)}
+textarea{font-family:var(--mono);font-size:12.5px;line-height:1.6;min-height:150px;resize:vertical;background:#fff}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+.btn{background:#fff;border:1px solid var(--line);color:var(--ink);font-weight:500;font-size:12.5px;padding:9px 16px;border-radius:8px;cursor:pointer;font-family:var(--sans);letter-spacing:.01em;transition:.15s}
+.btn:hover{border-color:var(--accent-line);background:var(--warm)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btnP{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btnP:hover{filter:brightness(1.05);background:var(--accent)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{font-size:12px;padding:7px 13px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(80,50,20,.03)}
+.metric{padding:18px 20px;border-right:1px solid var(--line2)}.metric:last-child{border-right:none}
+.metric .l{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);margin-bottom:7px}
+.metric .v{font-family:var(--serif);font-size:26px;font-weight:500;letter-spacing:-.01em;line-height:1}
+.metric .v.acc{color:var(--accent)}
+.lede{font-family:var(--mono);font-size:12.5px;line-height:1.7;white-space:pre-wrap;background:var(--warm);border:1px solid var(--line);border-radius:9px;padding:16px;max-height:240px;overflow:auto;margin:0;color:#33271f}
+.kv{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--line2)}.kv:last-child{border:none}
+.kv .k{color:var(--mut)}
+.hl{color:var(--accent)}.pos{color:var(--pos)}.muted{color:var(--mut)}
+.divlabel{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);padding:9px 6px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:11px 6px;border-bottom:1px solid var(--line2)}tr:last-child td{border:none}
+.num{font-family:var(--mono);font-size:12.5px}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px}.hide{display:none}
+.desk{border:1px solid var(--line);border-radius:14px;padding:30px;min-height:470px;position:relative;background:linear-gradient(135deg,#FCF8F2 0%,#F7EFE3 100%)}
+.deskhint{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.float{position:absolute;top:30px;right:30px;width:404px;background:rgba(255,255,255,.86);backdrop-filter:blur(20px) saturate(1.2);border:1px solid rgba(120,80,40,.12);border-radius:16px;box-shadow:0 30px 70px rgba(110,70,30,.18),0 1px 0 rgba(255,255,255,.7) inset;overflow:hidden;animation:pop .14s cubic-bezier(.16,1,.3,1)}
+@keyframes pop{from{opacity:0;transform:translateY(7px) scale(.985)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.float{animation:none}}
+.fhead{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid rgba(120,80,40,.1)}
+.fbrand{font-family:var(--serif);font-size:14px;font-weight:500}
+.facts{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid rgba(120,80,40,.1)}
+.fact{font-size:10px;font-weight:500;padding:10px 2px;text-align:center;cursor:pointer;color:var(--mut);border-right:1px solid rgba(120,80,40,.08);letter-spacing:.02em;transition:.12s}
+.fact:last-child{border-right:none}.fact:hover{color:var(--ink)}.fact.on{color:var(--accent)}
+.fbody{padding:14px}
+.fmetrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid rgba(120,80,40,.12);border-radius:9px;overflow:hidden;margin-bottom:10px}
+.fm{padding:9px 8px;border-right:1px solid rgba(120,80,40,.08)}.fm:last-child{border:none}
+.fm .l{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.fm .v{font-family:var(--serif);font-size:16px;font-weight:500;margin-top:3px}
+.fbtns{display:flex;gap:8px;padding:12px 14px;border-top:1px solid rgba(120,80,40,.1)}
+</style></head><body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">Blueprint<span class="dot">.</span></div>
+    <div class="tag">Token Atelier</div>
+    <button class="nav" data-v="floating" onclick="go('floating')"><span class="k">⌘</span> Overlay</button>
+    <button class="nav active" data-v="optimize" onclick="go('optimize')"><span class="k">↳</span> Optimize</button>
+    <button class="nav" data-v="router" onclick="go('router')"><span class="k">≡</span> Model Router</button>
+    <div class="foot">A quiet utility that trims AI prompts before they cost you. Press Ctrl/Cmd+Shift+B anywhere.</div>
+  </aside>
+  <main class="main"><div class="wrap" id="view"></div></main>
+</div>
+<div class="toast hide" id="toast"></div>
+<script>
+// Faithful plain-JS port of the verified Blueprint engine (tokens + pricing + optimizer).
+function detectKind(text){const t=text.trim();if(!t)return"prose";if(/^[\[{]/.test(t)&&/[\]}]\s*$/.test(t))return"json";const c=(t.match(/[;{}()=><]|=>|function|const |import |def |class /g)||[]).length;if(c/Math.max(1,t.length/80)>1.4)return"code";if(c>6)return"mixed";return"prose";}
+function estimateTokens(text,kind){if(!text)return 0;const tr=text.replace(/\s+/g," ").trim();if(!tr)return 0;const chars=tr.length,words=tr.split(/\s+/).filter(Boolean).length;const k=kind||detectKind(text);let e=(chars/4)*0.6+words*1.33*0.4;if(k==="code")e*=1.18;else if(k==="json")e*=1.22;else if(k==="mixed")e*=1.08;return Math.max(1,Math.round(e));}
+const TIER_LABEL={1:"Light",2:"Standard",3:"Advanced",4:"Frontier"};
+const MODELS=[
+{id:"gpt-4o",name:"GPT-4o",vendor:"OpenAI",inputPerM:2.5,outputPerM:10,tier:3,context:"128K"},
+{id:"gpt-4o-mini",name:"GPT-4o mini",vendor:"OpenAI",inputPerM:0.15,outputPerM:0.6,tier:1,context:"128K"},
+{id:"o3-mini",name:"o3-mini",vendor:"OpenAI",inputPerM:1.1,outputPerM:4.4,tier:3,context:"200K"},
+{id:"claude-opus",name:"Claude Opus",vendor:"Anthropic",inputPerM:15,outputPerM:75,tier:4,context:"200K"},
+{id:"claude-sonnet",name:"Claude Sonnet",vendor:"Anthropic",inputPerM:3,outputPerM:15,tier:3,context:"200K"},
+{id:"claude-haiku",name:"Claude Haiku",vendor:"Anthropic",inputPerM:0.8,outputPerM:4,tier:2,context:"200K"},
+{id:"gemini-pro",name:"Gemini 1.5 Pro",vendor:"Google",inputPerM:1.25,outputPerM:5,tier:3,context:"1M"},
+{id:"gemini-flash",name:"Gemini 1.5 Flash",vendor:"Google",inputPerM:0.075,outputPerM:0.3,tier:1,context:"1M"},
+{id:"grok-2",name:"Grok 2",vendor:"xAI",inputPerM:2,outputPerM:10,tier:3,context:"131K"},
+{id:"llama-70b",name:"Llama 3.1 70B",vendor:"Meta",inputPerM:0.2,outputPerM:0.2,tier:2,context:"128K"},
+{id:"deepseek-chat",name:"DeepSeek V3",vendor:"DeepSeek",inputPerM:0.27,outputPerM:1.1,tier:3,context:"64K"},
+{id:"mistral-large",name:"Mistral Large",vendor:"Mistral",inputPerM:2,outputPerM:6,tier:3,context:"128K"},
+{id:"local",name:"Local model",vendor:"Local",inputPerM:0,outputPerM:0,tier:2,context:"varies"}];
+const getModel=id=>MODELS.find(m=>m.id===id);
+const callCost=(m,i,o)=>(i/1e6)*m.inputPerM+(o/1e6)*m.outputPerM;
+function routeTask(desc,inTok,outTok){const t=desc.toLowerCase();let score=10;const reasons=[];
+const hard=/(reason|analyz|evaluate|critique|legal|contract|security|architect|debug|prove|strateg|nuance|negotiat|multi-step|multistep|complex|research|plan\b)/g;
+const easy=/(classif|label|extract|tag|format|translate|list|categor|lookup|rephrase|spellcheck|summari)/g;
+const hm=(t.match(hard)||[]).length,em=(t.match(easy)||[]).length;
+if(hm){score+=hm*18;reasons.push({delta:"+"+hm*18,label:"Reasoning-heavy verbs ("+hm+")",tone:"warn"});}
+if(em){score-=em*12;reasons.push({delta:"-"+em*12,label:"Simple/structured task ("+em+")",tone:"good"});}
+if(outTok>1000){score+=20;reasons.push({delta:"+20",label:"Long generation (>1k output)",tone:"warn"});}
+else if(outTok>0&&outTok<80){score-=10;reasons.push({delta:"-10",label:"Tiny output",tone:"good"});}
+if(inTok>20000){score+=18;reasons.push({delta:"+18",label:"Very large context",tone:"warn"});}
+else if(inTok>0&&inTok<800){score-=6;reasons.push({delta:"-6",label:"Small context",tone:"good"});}
+score=Math.max(2,Math.min(99,Math.round(score)));
+const requiredTier=score<25?1:score<50?2:score<75?3:4;
+const ranked=MODELS.map(m=>({model:m,cost:callCost(m,inTok,outTok),capable:m.tier>=requiredTier})).sort((a,b)=>a.cost-b.cost);
+const hosted=ranked.find(r=>r.capable&&r.model.vendor!=="Local"),any=ranked.find(r=>r.capable);
+return{score,requiredTier,reasons,ranked,recommended:(hosted||any||{}).model};}
+const FILLERS=[
+[/\bi would really appreciate it if you could\b/gi,"politeness"],[/\bthank you( so much| very much| in advance| a lot)?( for (your help|this|everything|that)( with this( task)?)?)?!*/gi,"politeness"],[/\bthanks( (a lot|so much|again|in advance))?!*/gi,"politeness"],
+[/\bplease could you\b/gi,"verbosity"],[/\bi would like you to\b/gi,"verbosity"],
+[/\bi want you to\b/gi,"verbosity"],[/\bi need you to\b/gi,"verbosity"],[/\bplease make sure (that |to )?/gi,"filler"],
+[/\bplease do not forget to\b/gi,"filler"],[/\bit is (very |really )?important that you\b/gi,"filler"],[/\bmake sure (that |to )?you\b/gi,"filler"],
+[/\b(very )?carefully (read|review|analyze|consider)( through)?\b/gi,"filler"],[/\bread through (the )?(following )?\b/gi,"verbosity"],
+[/\bthat we (have )?received\b/gi,"verbosity"],[/\bfrom one of our valued customers\b/gi,"verbosity"],[/\bone of our valued customers\b/gi,"verbosity"],
+[/\bas you can see\b/gi,"filler"],[/\bin order to\b/gi,"verbosity"],[/\bdue to the fact that\b/gi,"verbosity"],[/\bat this point in time\b/gi,"verbosity"],
+[/\bthe following\b/gi,"verbosity"],[/\bas follows\b/gi,"verbosity"],[/\b(kindly|please)\b/gi,"politeness"],
+[/\b(just|simply|really|very|actually|basically|essentially)\b/gi,"filler"]];
+const VAGUE=["good","nice","better","some","stuff","things","a lot","etc","and so on","appropriate","as needed","high quality"];
+const SO=String.fromCharCode(0xe000),SC=String.fromCharCode(0xe001);
+function mask(text){const store=[];const wrap=m=>{store.push(m);return SO+(store.length-1)+SC;};
+let s=text.replace(/```[\s\S]*?```/g,wrap);s=s.replace(/"[^"]{40,}"/g,wrap);
+const restore=x=>x.replace(new RegExp(SO+"(\\d+)"+SC,"g"),(_,i)=>store[Number(i)]||"");return{masked:s,restore};}
+function dedupe(text){const parts=text.split(/(?<=[.!?])\s+/);const seen=new Set();const kept=[];let removed=0;
+for(const p of parts){const n=p.toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+if(n.length>12&&seen.has(n)){removed+=estimateTokens(p);continue;}if(n.length>12)seen.add(n);kept.push(p);}return{out:kept.join(" "),removed};}
+function detectVagueness(text){const f=[];const lo=text.toLowerCase();
+const found=VAGUE.filter(v=>new RegExp("\\b"+v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b").test(lo));
+if(found.length)f.push({label:"Vague wording: "+found.slice(0,4).join(", "),suggestion:"Replace with concrete, measurable terms (e.g. 'concise' -> 'under 100 words')."});
+if(!/(format|json|markdown|bullet|table|step|word|sentence|paragraph|tone)/i.test(text))f.push({label:"No output format specified",suggestion:"State the desired format/length so the model doesn't over-generate."});
+if(text.trim().split(/\s+/).length<4)f.push({label:"Very short prompt",suggestion:"Add the goal and any constraints; underspecified prompts often need expensive re-tries."});
+return f;}
+function optimize(input,opts){opts=opts||{};const modelId=opts.modelId||"gpt-4o";const level=opts.level||"balanced";
+const model=getModel(modelId)||getModel("gpt-4o");const kind=detectKind(input);const originalTokens=estimateTokens(input,kind);
+const waste=[];const{masked,restore}=mask(input);let w=masked;const gT={},gL={};
+for(const[re,type]of FILLERS){w=w.replace(re,m=>{gT[type]=(gT[type]||0)+estimateTokens(m);(gL[type]=gL[type]||new Set());return" ";});}
+for(const type of Object.keys(gT)){if(gT[type]>0)waste.push({type,label:type==="politeness"?"Removed politeness padding":type==="verbosity"?"Tightened wordy phrasing":"Dropped emphatic filler",detail:type==="politeness"?"please/thank-you padding":type==="verbosity"?"wordy phrasing & lead-ins":"emphatic & weak intensifiers",tokensSaved:gT[type]});}
+if(level==="aggressive"||level==="reduce"){const b=w;w=w.replace(/\b(for example|for instance|e\.g\.)[^.?!]*[.?!]/gi,"");const sv=estimateTokens(b)-estimateTokens(w);if(sv>0)waste.push({type:"examples",label:"Removed inline examples",detail:"cut for-example asides",tokensSaved:sv});}if(level==="reduce"){const b2=w;w=w.replace(/\b(could you|would you|when you (get|have) (a chance|time)|if possible|i think|i believe|kind of|sort of|a bit|a little|somewhat|perhaps|maybe)\b/gi," ");const s2=estimateTokens(b2)-estimateTokens(w);if(s2>0)waste.push({type:"verbosity",label:"Reduced hedging & modals",detail:"removed soft/uncertain phrasing",tokensSaved:s2});}
+const dd=dedupe(w);w=dd.out;if(dd.removed>0)waste.push({type:"redundancy",label:"Removed repeated text",detail:"collapsed restated instructions",tokensSaved:dd.removed});
+const bws=w;w=w.replace(/[ \t]{2,}/g," ").replace(/\s+([,.!?:;])/g,"$1").replace(/([,.!?:;]){2,}/g,"$1").replace(/\n{3,}/g,"\n\n").replace(/ +\n/g,"\n").replace(/(^|[.!?]\s+)[,;:]\s*/g,"$1").replace(/^[\s,;:]+/,"").replace(/[\s,;:]+$/,"").trim();
+const wsv=estimateTokens(bws)-estimateTokens(w);if(wsv>0)waste.push({type:"whitespace",label:"Normalized spacing",detail:"extra spaces & blank lines",tokensSaved:wsv});
+w=w.replace(/(^|[.!?]\s+)([a-z])/g,(_,p,c)=>p+c.toUpperCase());if(level==="clarity"){w=w.replace(/\bi\b/g,"I");if(w&&!/[.!?]$/.test(w.trim()))w=w.trim()+".";}const optimized=restore(w);
+const optimizedTokens=estimateTokens(optimized,kind);const tokensSaved=Math.max(0,originalTokens-optimizedTokens);
+const compressionPct=originalTokens?Math.round((tokensSaved/originalTokens)*100):0;const clarityFlags=detectVagueness(input);
+let risk=compressionPct*0.6;if(waste.some(x=>x.type==="examples"))risk+=18;if(compressionPct>55)risk+=12;
+const safe=waste.filter(x=>x.type==="politeness"||x.type==="whitespace").reduce((s,x)=>s+x.tokensSaved,0)/Math.max(1,tokensSaved);
+risk-=safe*18;const qualityRisk=Math.max(0,Math.min(100,Math.round(risk)));
+const qualityRiskLabel=qualityRisk<25?"Low":qualityRisk<55?"Moderate":"Elevated";
+const expOut=opts.expectedOutputTokens||Math.min(1500,Math.round(optimizedTokens*0.4)||200);
+const savedPerCall=(tokensSaved/1e6)*model.inputPerM;const monthlyRuns=opts.monthlyRuns||0;
+const savedPerMonth=savedPerCall*monthlyRuns,savedPerYear=savedPerMonth*12;
+const routing=routeTask(input.slice(0,600),optimizedTokens,expOut);
+const readability=readabilityScore(optimized);const qualityConfidence=100-qualityRisk;return{original:input,optimized,kind,originalTokens,optimizedTokens,tokensSaved,compressionPct,qualityRisk,qualityRiskLabel,waste:waste.sort((a,b)=>b.tokensSaved-a.tokensSaved),clarityFlags,savedPerCall,savedPerMonth,savedPerYear,routing,readability,qualityConfidence};}
+function costBreakdown(text,expectedOutputTokens){expectedOutputTokens=expectedOutputTokens||0;const tokens=estimateTokens(text);const rows=MODELS.map(m=>({model:m,inputTokens:tokens,inputCost:callCost(m,tokens,0),totalCost:callCost(m,tokens,expectedOutputTokens)})).sort((a,b)=>a.totalCost-b.totalCost);return{tokens,rows};}
+
+function readabilityScore(text){const t=text.replace(/\s+/g," ").trim();if(!t)return 0;const sentences=Math.max(1,(t.match(/[.!?]+/g)||[]).length);const words=t.split(/\s+/).filter(Boolean);if(!words.length)return 0;const wps=words.length/sentences;const cpw=words.reduce((a,w)=>a+w.length,0)/words.length;const score=100-(wps-12)*2.2-(cpw-4.7)*9;return Math.max(0,Math.min(100,Math.round(score)));}
+function detectContext(text){const t=text.trim();const k=detectKind(t);
+ if(k==="json")return{context:"json",suggestedLevel:"balanced",label:"JSON \u2192 preserve structure"};
+ if(k==="code")return{context:"code",suggestedLevel:"balanced",label:"Code \u2192 preserve syntax"};
+ if(/\b(action items?|attendees?|agenda|minutes|next steps|decisions?|follow[- ]?ups?)\b/i.test(t))return{context:"notes",suggestedLevel:"aggressive",label:"Notes \u2192 summarize"};
+ if(/\n/.test(t)&&/(\bdear\b|\bhi\b|\bhello\b|\bhey\b|\bregards\b|\bsincerely\b|\bbest,|sent from my|subject:)/i.test(t))return{context:"email",suggestedLevel:"clarity",label:"Email \u2192 rewrite professionally"};
+ if(/^#{1,6}\s|\n[-*+]\s|\n\d+\.\s|```|\[[^\]]+\]\([^)]+\)/.test(t))return{context:"markdown",suggestedLevel:"balanced",label:"Markdown \u2192 preserve formatting"};
+ if(/\b(you are|act as|respond with|return only|summarize|rewrite|generate|classify|output (a|the|only)|step by step|system prompt)\b/i.test(t))return{context:"prompt",suggestedLevel:"balanced",label:"Prompt \u2192 reduce tokens"};
+ return{context:"document",suggestedLevel:"aggressive",label:"Document \u2192 compress intelligently"};}
+function rewriteClearer(text,modelId){return optimize(text,{modelId:modelId||"gpt-4o",level:"clarity"});}
+function reduceTokens(text,modelId){return optimize(text,{modelId:modelId||"gpt-4o",level:"reduce"});}
+function optimizeAuto(text,modelId,monthlyRuns){const detected=detectContext(text);const result=optimize(text,{modelId:modelId||"gpt-4o",monthlyRuns:monthlyRuns||0,level:detected.suggestedLevel});return Object.assign({},result,{detected});}
+
+if(typeof module!=="undefined")module.exports={optimize,reduceTokens,rewriteClearer,optimizeAuto,detectContext,readabilityScore,costBreakdown,routeTask,estimateTokens,detectKind,detectVagueness,callCost,getModel,MODELS,TIER_LABEL};
+const SAMPLES={"Prompt":"I would like you to please carefully read the following and then write a response. Please make sure it is professional. It is very important that you address all concerns. Thank you so much for your help!","Email":"Hi team,\n\nCould you please, when you get a chance, carefully review the attached draft? I would really appreciate it. Thanks so much!\n\nRegards,\nSam","Meeting notes":"Agenda\n- discuss roadmap\n- review metrics\n- assign owners\nAction items: ship v2, email the client, schedule next sync","JSON":'{\n  "name": "Blueprint",\n  "features": ["optimize","compress","reduce"],\n  "active": true\n}'};
+const money=n=>!isFinite(n)?"$0.00":(n!==0&&Math.abs(n)<0.01?"$"+n.toFixed(5):"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}));
+const num=n=>n.toLocaleString("en-US");const esc=s=>s.replace(/</g,"&lt;");
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.remove("hide");setTimeout(()=>t.classList.add("hide"),1700);}
+function go(v){document.querySelectorAll(".nav").forEach(b=>b.classList.toggle("active",b.dataset.v===v));v==="optimize"?Optimize():v==="router"?Router():Floating();}
+
+let fAction="auto", fText=SAMPLES["Email"], fRes=null, fCost=null;
+const FMODES=[["auto","Auto"],["optimize","Optimize"],["compress","Compress"],["reduce","Reduce"],["cost","Cost"],["clearer","Rewrite"]];
+function Floating(){const el=document.getElementById("view");
+  el.innerHTML=`<h1>The overlay</h1><div class="sub">Highlight text in any application and press the shortcut. A small panel appears, reads the selection, recognises what it is, and returns a leaner version. Nothing leaves your machine.</div>
+  <div class="chips" style="margin-bottom:16px">${Object.keys(SAMPLES).map(k=>'<button class="btn chip" onclick="fText=SAMPLES[\''+k+'\'];document.getElementById(\'fin\').value=fText;fRun()">'+k+'</button>').join("")}</div>
+  <div class="desk"><div class="deskhint">Your screen · any app</div>
+    <div class="float" role="dialog" aria-label="Blueprint">
+      <div class="fhead"><span class="fbrand">Blueprint<span class="hl">.</span></span><span class="muted" style="font-size:10.5px;margin-left:auto;font-family:var(--mono)">⌘⇧B</span></div>
+      <div class="facts">${FMODES.map(m=>'<div class="fact" data-a="'+m[0]+'" onclick="fPick(\''+m[0]+'\')">'+m[1]+'</div>').join("")}</div>
+      <div class="fbody"><textarea id="fin" style="min-height:54px" oninput="fText=this.value">${fText}</textarea><div id="fdet" style="font-size:11px;color:var(--accent);margin-top:8px;font-family:var(--mono)"></div><div id="fbodyR" style="margin-top:10px"></div></div>
+      <div class="fbtns"><button class="btn chip" style="flex:1" id="fcopy" onclick="fCopy()">Copy</button><button class="btn btnP chip" style="flex:1" id="frep" onclick="toast('Replaced selection')">Replace</button><button class="btn chip" id="fexp" onclick="fExport()">Export</button></div>
+    </div>
+  </div>`;fRun();}
+function fPick(a){fAction=a;fRun();}
+function fRun(){document.querySelectorAll(".fact").forEach(f=>f.classList.toggle("on",f.dataset.a===fAction));
+  const body=document.getElementById("fbodyR"),det=document.getElementById("fdet");if(!body)return;det.textContent="";
+  if(!fText.trim()){body.innerHTML='<div class="muted" style="font-size:12px;text-align:center;padding:14px 0">Highlight text, then press the shortcut.</div>';fRes=null;fCost=null;up();return;}
+  if(fAction==="cost"){fCost=costBreakdown(fText,200);fRes=null;up();
+    body.innerHTML='<div class="muted" style="font-size:12px;margin-bottom:8px">'+num(fCost.tokens)+' input tokens · cost to send</div><table>'+fCost.rows.slice(0,6).map(r=>'<tr><td style="padding:7px 4px">'+r.model.name+'</td><td style="padding:7px 4px" class="num">'+money(r.inputCost)+'</td></tr>').join("")+'</table>';return;}
+  let r;if(fAction==="auto"){r=optimizeAuto(fText,"gpt-4o",50000);det.textContent=r.detected.label;}
+  else{const level=fAction==="compress"?"aggressive":fAction==="reduce"?"reduce":fAction==="clearer"?"clarity":"balanced";r=optimize(fText,{modelId:"gpt-4o",monthlyRuns:50000,level});}
+  fRes=r;fCost=null;up();
+  body.innerHTML=`<div class="fmetrics">
+    <div class="fm"><div class="l">Before</div><div class="v">${num(r.originalTokens)}</div></div>
+    <div class="fm"><div class="l">After</div><div class="v">${num(r.optimizedTokens)}</div></div>
+    <div class="fm"><div class="l">Saved</div><div class="v hl">${r.compressionPct}%</div></div>
+    <div class="fm"><div class="l">Conf.</div><div class="v">${r.qualityConfidence}</div></div></div>
+   <pre class="lede" style="max-height:108px;font-size:12px">${esc(r.optimized)}</pre>
+   <div class="muted" style="font-size:11px;margin-top:8px">Readability ${r.readability} · best model <span class="hl">${r.routing.recommended?r.routing.recommended.name:'—'}</span> · ~${money(r.savedPerYear)}/yr</div>`;}
+function up(){["fcopy","frep"].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!fRes;});const e=document.getElementById("fexp");if(e)e.disabled=!fRes&&!fCost;}
+function fCopy(){if(fRes){navigator.clipboard.writeText(fRes.optimized);toast("Copied");}}
+function fExport(){const p=fRes||fCost;if(!p)return;const b=new Blob([JSON.stringify(p,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="blueprint-result.json";a.click();URL.revokeObjectURL(u);toast("Exported");}
+
+function Optimize(){const el=document.getElementById("view");
+  el.innerHTML=`<h1>Optimize</h1><div class="sub">Paste any prompt, message, document, or code. Blueprint removes what the model does not need and prices what you keep.</div>
+  <div class="panel"><div class="row" style="margin-bottom:14px">
+    <div style="flex:1;min-width:150px"><label>Model</label><select id="m">${MODELS.map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join("")}</select></div>
+    <div style="width:120px"><label>Runs / mo</label><input id="runs" type="number" value="50000"></div>
+    <div style="width:150px"><label>Mode</label><select id="lvl"><option value="balanced">Optimize</option><option value="aggressive">Compress</option><option value="reduce">Reduce</option><option value="clarity">Rewrite</option></select></div>
+  </div>
+  <textarea id="in">${SAMPLES["Prompt"]}</textarea>
+  <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn btnP" style="padding:10px 24px" onclick="runOpt()">Optimize</button></div></div>
+  <div id="res"></div>`;}
+function runOpt(){const input=document.getElementById("in").value;const modelId=document.getElementById("m").value;const runs=+document.getElementById("runs").value||0;const level=document.getElementById("lvl").value;
+  if(!input.trim()){document.getElementById("res").innerHTML='<div class="panel">Paste text first.</div>';return;}
+  const r=optimize(input,{modelId,monthlyRuns:runs,level});
+  document.getElementById("res").innerHTML=`<div class="metrics" style="margin-bottom:18px">
+    <div class="metric"><div class="l">Before</div><div class="v">${num(r.originalTokens)}</div></div>
+    <div class="metric"><div class="l">After</div><div class="v">${num(r.optimizedTokens)}</div></div>
+    <div class="metric"><div class="l">Reduction</div><div class="v acc">${r.compressionPct}%</div></div>
+    <div class="metric"><div class="l">Saved / yr</div><div class="v">${money(r.savedPerYear)}</div></div></div>
+  <div class="panel"><div class="divlabel">Optimized</div><pre class="lede">${esc(r.optimized)}</pre>
+    <div style="display:flex;gap:10px;margin-top:14px"><button class="btn" onclick="navigator.clipboard.writeText(this.parentNode.previousElementSibling.textContent);toast('Copied')">Copy</button><button class="btn">Replace</button></div></div>
+  <div class="panel"><div class="divlabel">Quality</div>
+    <div class="kv"><span class="k">Readability</span><span class="num">${r.readability} / 100</span></div>
+    <div class="kv"><span class="k">Quality confidence</span><span class="num">${r.qualityConfidence}%</span></div>
+    <div class="kv"><span class="k">Recommended model</span><span class="hl">${r.routing.recommended?r.routing.recommended.name:'—'}</span></div></div>
+  <div class="panel"><div class="divlabel">Removed</div>${r.waste.length?r.waste.map(w=>'<div class="kv"><span class="k">'+w.label+'</span><span class="num muted">−'+w.tokensSaved+' tok</span></div>').join(""):'<div class="muted" style="font-size:13px">Already lean.</div>'}</div>`;}
+
+function Router(){const el=document.getElementById("view");
+  el.innerHTML=`<h1>Model Router</h1><div class="sub">Describe a task. Blueprint scores its difficulty and names the least expensive model that can still do it well.</div>
+  <div class="panel"><label>Task</label><textarea id="t" style="min-height:64px">Classify a short support ticket into one of four labels. Return only the label.</textarea>
+  <div class="row" style="margin-top:14px"><div style="flex:1"><label>Input tokens</label><input id="ti" type="number" value="600"></div><div style="flex:1"><label>Output tokens</label><input id="to" type="number" value="15"></div><button class="btn btnP" onclick="runR()">Score</button></div></div><div id="rr"></div>`;runR();}
+function runR(){const t=document.getElementById("t").value,ti=+document.getElementById("ti").value||0,to=+document.getElementById("to").value||0;const r=routeTask(t,ti,to);
+  document.getElementById("rr").innerHTML=`<div class="panel" style="display:flex;align-items:center;gap:26px"><div><div style="font-family:var(--serif);font-size:44px;font-weight:500;line-height:1;color:var(--accent)">${r.score}</div><div class="muted" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-top:4px">${TIER_LABEL[r.requiredTier]}</div></div><div style="flex:1;border-left:1px solid var(--line);padding-left:24px"><div class="muted" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Recommended</div><div style="font-family:var(--serif);font-size:20px" class="hl">${r.recommended?r.recommended.name:'—'}</div></div></div>
+   <div class="panel"><table><thead><tr><th>Model</th><th>Vendor</th><th>Capability</th><th>Cost / call</th></tr></thead><tbody>${r.ranked.map(x=>{const pick=r.recommended&&x.model.id===r.recommended.id;return '<tr><td>'+(pick?'<span class="hl">› </span>':'')+x.model.name+'</td><td class="muted">'+x.model.vendor+'</td><td class="muted">'+(x.capable?TIER_LABEL[x.model.tier]:'below bar')+'</td><td class="num">'+money(x.cost)+'</td></tr>';}).join("")}</tbody></table></div>`;}
+go('floating');
+</script></body></html>

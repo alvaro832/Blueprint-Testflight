@@ -1,0 +1,64 @@
+# Blueprint
+
+**Reduce AI token usage before your prompts reach a model.** Blueprint is a local-first
+desktop assistant: highlight text in any app, press **Ctrl/Cmd + Shift + B**, and a small
+glass overlay compresses, clarifies, and prices your prompt — for Claude, OpenAI, Gemini,
+Grok, Llama, DeepSeek, Mistral, local, or any custom endpoint.
+
+> Grammarly for AI token savings. One hotkey. One floating window.
+
+## Repository layout
+
+```
+Blueprint-Testflight/
+├── desktop/   Tauri 2 + React + TypeScript desktop app (tray, global hotkey, overlay, SQLite, encrypted keys)
+├── engine/    Zero-dependency JS/TS optimizer you can drop into any project (module + CLI + wrappers)
+├── site/      Static preview/landing page, published to GitHub Pages (the public domain)
+└── .github/workflows/   CI — build installers on tags, deploy the site on push to main
+```
+
+## Run the desktop app
+
+```bash
+cd desktop
+npm install
+npm run tauri:dev        # dev run
+npm run tauri:build      # installers -> desktop/src-tauri/target/release/bundle/
+npm test                 # engine unit tests (26 cases)
+```
+
+See `desktop/docs/` for INSTALL, BUILD, TROUBLESHOOTING, and the testing & bug-prevention checklists.
+
+## Use the engine in your own code (no build step)
+
+```js
+import { optimize, optimizeAuto, costBreakdown } from "./engine/blueprint.mjs";
+const r = optimize(prompt, { level: "balanced" });   // send r.optimized to your model
+```
+
+Or from the terminal: `echo "your prompt" | node engine/cli.mjs --auto`. See `engine/README.md`.
+
+## The site (your domain)
+
+`site/index.html` is the warm theme; `site/dark.html` is the graphite theme. The
+**Deploy site** workflow publishes `site/` to GitHub Pages on every push to `main`.
+
+- Default URL: `https://alvaro832.github.io/Blueprint-Testflight/`
+- Custom domain: add a `site/CNAME` file containing your domain (e.g. `blueprint.yourdomain.com`)
+  and point a CNAME DNS record at `alvaro832.github.io`. GitHub → Settings → Pages will verify it.
+
+## Releasing installers
+
+Tag a version and push it — the **Release** workflow builds signed-ready installers for
+Windows, macOS, and Linux and attaches them to a draft GitHub Release:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+## Security
+
+Local-first. API keys are stored in the OS keychain (never plaintext, never logged).
+No telemetry by default. One click deletes all local data.
+
+MIT licensed.

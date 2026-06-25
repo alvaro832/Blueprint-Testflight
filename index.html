@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+/**
+ * Blueprint CLI — optimize prompts from the terminal or any pipeline.
+ *
+ *   echo "your verbose prompt" | npx blueprint
+ *   node cli.mjs "your prompt here" --level reduce --model gpt-4o
+ *   node cli.mjs --file prompt.txt --json
+ *   cat prompt.md | node cli.mjs --cost
+ *
+ * Flags:
+ *   --auto              auto-detect context (code/email/notes/json/...) and pick the mode
+ *   --level <balanced|aggressive|reduce|clarity>   (default: balanced)
+ *   --model <id>        price savings on this model (default: gpt-4o)
+ *   --runs <n>          monthly runs for savings projection
+ *   --file <path>       read input from a file instead of stdin/arg
+ *   --cost              just print the token-cost table across models
+ *   --json              machine-readable JSON output
+ *   --quiet             print only the optimized text (great for piping)
+ */
+import { optimize, optimizeAuto, costBreakdown } from "./blueprint.mjs";
+import { readFileSync } from "node:fs";
+
+function arg(name, def) {
+  const i = process.argv.indexOf("--" + name);
+  return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : def;
+}
+const has = (name) => process.argv.includes("--" + name);
+
+async function readStdin() {
+  if (process.stdin.isTTY) return "";
+  const chunks = [];
+  for await (const c of process.stdin) chunks.push(c);
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+const money = (n) => (Math.abs(n) < 0.01 && n !== 0 ? "$" + n.toFixed(6) : "$" + n.toFixed(2));
+
+(async () => {
+  const file = arg("file");
+  const positional = process.argv.slice(2).find((a) => !a.startsWith("--") && process.argv[process.argv.indexOf(a) - 1]?.startsWith("--") !== true);
+  let text = file ? readFileSync(file, "utf8") : (positional && !positional.startsWith("--") ? positional : "") || (await readStdin());
+  text = (text || "").trim();
+  if (!text) {
+    console.error("Blueprint: no input. Pipe text in, pass a string, or use --file <path>. Try --help.");
+    process.exit(1);
+  }
+
+  const level = arg("level", "balanced");
+  const model = arg("model", "gpt-4o");
+  const runs = parseInt(arg("runs", "0"), 10) || 0;
+
+  if (has("cost")) {
+    const { tokens, rows } = costBreakdown(text, 200);
+    if (has("json")) return console.log(JSON.stringify({ tokens, rows }, null, 2));
+    console.log(`\nInput: ${tokens} tokens. Cost to send (cheapest first):\n`);
+    for (const r of rows) console.log(`  ${r.model.name.padEnd(18)} ${money(r.inputCost).padStart(12)}  (+output ${money(r.totalCost)})`);
+    return;
+  }
+
+  const r = has("auto") ? optimizeAuto(text, model, runs) : optimize(text, { modelId: model, monthlyRuns: runs, level });
+  if (has("quiet")) return console.log(r.optimized);
+  if (r.detected) console.log(`  detected: ${r.detected.label}`);
+  if (has("json")) return console.log(JSON.stringify(r, null, 2));
+
+  console.log(`\nBlueprint — ${level} optimize (${model})`);
+  console.log(`  ${r.originalTokens} → ${r.optimizedTokens} tokens  (-${r.compressionPct}%)   quality risk ${r.qualityRisk}/100 (${r.qualityRiskLabel})`);
+  console.log(`  saved/call ${money(r.savedPerCall)}` + (runs ? `   /mo ${money(r.savedPerMonth)}   /yr ${money(r.savedPerYear)} @ ${runs} runs` : ""));
+  if (r.routing.recommended) console.log(`  cheapest capable model: ${r.routing.recommended.name}`);
+  console.log(`\n--- optimized ---\n${r.optimized}\n`);
+})();

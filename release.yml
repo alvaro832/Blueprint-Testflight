@@ -1,0 +1,16 @@
+# dependencies & builds
+node_modules/
+dist/
+dist-ssr/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+*.local
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.log
+# env / secrets — never commit
+.env
+.env.*
+*.pem

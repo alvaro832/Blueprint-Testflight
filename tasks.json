@@ -1,0 +1,11 @@
+// Minimal usage. Run: node examples/basic.mjs
+import { optimize, reduceTokens, costBreakdown } from "../blueprint.mjs";
+
+const prompt = "I would like you to please carefully summarize the following text. Thank you so much!";
+
+const r = optimize(prompt, { modelId: "gpt-4o", monthlyRuns: 10000, level: "balanced" });
+console.log("optimized:", r.optimized);
+console.log(`saved ${r.compressionPct}%  ·  $${r.savedPerMonth.toFixed(2)}/mo`);
+
+console.log("max reduce:", reduceTokens(prompt).optimized);
+console.log("cost (gpt-4o):", costBreakdown(prompt, 200).rows.find(x => x.model.id === "gpt-4o").inputCost);
